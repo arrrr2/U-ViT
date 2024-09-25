@@ -1,0 +1,6 @@
+*.log
+*.pyc
+*cache*
+.vscode/
+workdir/
+assets/

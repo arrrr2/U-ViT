@@ -1,8 +1,10 @@
+import torch.utils
 from torch.utils.data import Dataset
 from torchvision import datasets
 import torchvision.transforms as transforms
 import numpy as np
 import torch
+import lmdb
 import math
 import random
 from PIL import Image
@@ -195,6 +197,74 @@ class ImageNet256Features(DatasetFactory):  # the moments calculated by Stable D
 
     def sample_label(self, n_samples, device):
         return torch.randint(0, 1000, (n_samples,), device=device)
+
+
+class ImageNetLatentDataset(DatasetFactory):
+    def __init__(self,
+                 path,  # Path to directory or zip.
+                 resolution=32,  # Ensure specific resolution, default 32.
+                 num_channels=4,  # Ensure specific number of channels, default 4.
+                 feat_dim=0,  # feature dim
+                 **super_kwargs,  # Additional arguments for the Dataset base class.
+                 ):
+        super().__init__()
+        self.feat_dim = feat_dim
+        self._feat_path = path
+        self.resolution = resolution
+        
+        self.train = self
+        self.K = 1000
+
+
+        
+
+    def open_feat_lmdb(self):
+        self.env = lmdb.open(self._feat_path, readonly=True, lock=False, create=False)
+        self.txn = self.env.begin(write=False)
+
+    def _load_raw_data(self, idx):
+        if not hasattr(self, 'txn'):
+            self.open_lmdb()
+
+        z_bytes = self.txn.get(f'z-{str(idx)}'.encode('utf-8'))
+        y_bytes = self.txn.get(f'y-{str(idx)}'.encode('utf-8'))
+        z = np.frombuffer(z_bytes, dtype=np.float32).reshape([-1, self.resolution, self.resolution]).copy()
+        y = int(y_bytes.decode('utf-8'))
+        # y = np.array([y], np.int64)
+
+        cond = y
+        # z = np.concatenate((z, z), axis=0)
+
+        return z, cond
+    
+    def __getitem__(self, idx):
+        if not hasattr(self, 'txn'):
+            self.open_feat_lmdb()
+        return self._load_raw_data(idx)
+
+    @property
+    def fid_stat(self):
+        return f'assets/fid_stats/fid_stats_imagenet256_guided_diffusion.npz'
+    
+    def close(self):
+        try:
+            if self.env is not None:
+                self.env.close()
+            if self.feat_env is not None:
+                self.feat_env.close()
+        finally:
+            self.env = None
+            self.feat_env = None
+
+    def __len__(self):
+        return 1281167
+
+
+    def sample_label(self, n_samples, device):
+        return torch.randint(0, 1000, (n_samples,), device=device)
+
+    def label_prob(self, k):
+        return torch.tensor(0.001)
 
 
 class ImageNet512Features(DatasetFactory):  # the moments calculated by Stable Diffusion image encoder
@@ -537,9 +607,19 @@ def get_dataset(name, **kwargs):
         return ImageNet256Features(**kwargs)
     elif name == 'imagenet512_features':
         return ImageNet512Features(**kwargs)
+    elif name == 'imagenet256_features_lmdb':
+        return ImageNetLatentDataset(**kwargs)
     elif name == 'celeba':
         return CelebA(**kwargs)
     elif name == 'mscoco256_features':
         return MSCOCO256Features(**kwargs)
     else:
         raise NotImplementedError(name)
+
+
+if __name__=='__main__':
+    from torch.utils.data import DataLoader
+    dataset = get_dataset('imagenet256_feature_lmdb', path='/home/ubuntu/data/repos/MaskDiT/latents/imagenet256/png/100/')
+    dataloader = DataLoader(dataset, batch_size=16)
+    for _ in dataloader:
+        print(_)

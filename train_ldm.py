@@ -18,7 +18,7 @@ import builtins
 import os
 import wandb
 import libs.autoencoder
-
+# torch.multiprocessing.set_start_method('spawn')
 
 def train(config):
     if config.get('benchmark', False):
@@ -56,7 +56,9 @@ def train(config):
     train_dataset = dataset.get_split(split='train', labeled=config.train.mode == 'cond')
     train_dataset_loader = DataLoader(train_dataset, batch_size=mini_batch_size, shuffle=True, drop_last=True,
                                       num_workers=8, pin_memory=True, persistent_workers=True)
-
+    # train_dataset_loader = DataLoader(train_dataset, batch_size=mini_batch_size, shuffle=True, drop_last=True,
+    #                                   num_workers=0, pin_memory=True)
+    print(f'iterations: {len(train_dataset_loader)}')
     train_state = utils.initialize_train_state(config, device)
     nnet, nnet_ema, optimizer, train_dataset_loader = accelerator.prepare(
         train_state.nnet, train_state.nnet_ema, train_state.optimizer, train_dataset_loader)
@@ -265,4 +267,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    
     app.run(main)

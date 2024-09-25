@@ -12,7 +12,7 @@ np.random.seed(0)
 
 def main(resolution=256):
     parser = argparse.ArgumentParser()
-    parser.add_argument('path', default='/tmpfs/imgnet1k_png')
+    parser.add_argument('--path', default='/mnt/tmpfs/imgnet1k_png')
     args = parser.parse_args()
 
     dataset = ImageNet(path=args.path, resolution=resolution, random_flip=False)
