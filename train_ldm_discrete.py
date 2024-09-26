@@ -18,6 +18,7 @@ import os
 import wandb
 import libs.autoencoder
 import numpy as np
+import datetime
 
 
 def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_timestep=1000):
@@ -97,7 +98,7 @@ def train(config):
         torch.backends.cudnn.deterministic = False
 
     mp.set_start_method('spawn')
-    accelerator = accelerate.Accelerator()
+    accelerator = accelerate.Accelerator(timeout=datetime.timedelta(seconds=7200))
     device = accelerator.device
     accelerate.utils.set_seed(config.seed, device_specific=True)
     logging.info(f'Process {accelerator.process_index} using device: {device}')
