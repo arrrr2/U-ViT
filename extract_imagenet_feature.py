@@ -26,7 +26,7 @@ resolution = 256
 random_flip = True
 
 
-device = torch.device("cuda") if torch.cuda.is_available() and device_ids else torch.device("cpu")
+device = torch.device(f"cuda:{device_ids[0]}") if torch.cuda.is_available() and device_ids else torch.device("cpu")
 model = get_model('assets/stable-diffusion/autoencoder_kl.pth')
 model.eval()
 
