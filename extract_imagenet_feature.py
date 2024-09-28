@@ -20,11 +20,11 @@ parser.add_argument('--input_path', default='/home/ubuntu/data/datasets/imgnet1k
 parser.add_argument('--output_path', default='/mnt/tmpfs/latents/avif/80')
 parser.add_argument('--device_ids', nargs=1, type=str)
 args = parser.parse_args()
-args.device_ids = [int(i) for i in args.device_ids[0].split(',')]
+device_ids = [int(i) for i in args.device_ids[0].split(',')]
 
 resolution = 256
 random_flip = True
-device_ids = [0,1]
+
 
 device = torch.device("cuda") if torch.cuda.is_available() and device_ids else torch.device("cpu")
 model = get_model('assets/stable-diffusion/autoencoder_kl.pth')
