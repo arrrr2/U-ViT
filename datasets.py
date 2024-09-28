@@ -2,6 +2,7 @@ import torch.utils
 from torch.utils.data import Dataset
 from torchvision import datasets
 import torchvision.transforms as transforms
+from pillow_heif import AvifImagePlugin
 import numpy as np
 import torch
 import lmdb
@@ -228,6 +229,7 @@ class ImageNetLatentDataset(DatasetFactory):
 
         z_bytes = self.txn.get(f'z-{str(idx)}'.encode('utf-8'))
         y_bytes = self.txn.get(f'y-{str(idx)}'.encode('utf-8'))
+        print(len(z_bytes))
         z = np.frombuffer(z_bytes, dtype=np.float32).reshape([-1, self.resolution, self.resolution]).copy()
         y = int(y_bytes.decode('utf-8'))
         # y = np.array([y], np.int64)
@@ -297,7 +299,7 @@ class ImageNet(DatasetFactory):
         super().__init__()
 
         print(f'Counting ImageNet files from {path}')
-        train_files = _list_image_files_recursively(os.path.join(path, 'train'))
+        train_files = _list_image_files_recursively(path)
         class_names = [os.path.basename(path).split("_")[0] for path in train_files]
         sorted_classes = {x: i for i, x in enumerate(sorted(set(class_names)))}
         train_labels = [sorted_classes[x] for x in class_names]
@@ -336,7 +338,7 @@ def _list_image_files_recursively(data_dir):
     for entry in sorted(os.listdir(data_dir)):
         full_path = os.path.join(data_dir, entry)
         ext = entry.split(".")[-1]
-        if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
+        if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif", "avif"]:
             results.append(full_path)
         elif os.listdir(full_path):
             results.extend(_list_image_files_recursively(full_path))
@@ -619,7 +621,19 @@ def get_dataset(name, **kwargs):
 
 if __name__=='__main__':
     from torch.utils.data import DataLoader
-    dataset = get_dataset('imagenet256_feature_lmdb', path='/home/ubuntu/data/repos/MaskDiT/latents/imagenet256/png/100/')
-    dataloader = DataLoader(dataset, batch_size=16)
+    dataset = get_dataset('imagenet256_features_lmdb', path='/home/ubuntu/data/datasets/imagenet256_latents/png/100/')
+    dataloader = DataLoader(dataset, batch_size=1024)
     for _ in dataloader:
-        print(_)
+        print(_[0])
+        data = (_[0][:,:4,:,:])
+        print(data.shape)
+        flattened_data = data.flatten()
+        import matplotlib.pyplot as plt
+        # Create histogram
+        plt.hist(flattened_data, bins=1000, alpha=0.75, color='blue')
+        plt.title('Histogram of DataLoader Outputs')
+        plt.xlabel('Value')
+        plt.ylabel('Frequency')
+        plt.grid(True)
+        plt.savefig('Histogram_of_DataLoader_Outputs.png')
+        break
