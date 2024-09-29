@@ -1,5 +1,4 @@
 from tools.fid_score import calculate_fid_given_paths
-import ml_collections
 import torch
 from torch import multiprocessing as mp
 import accelerate
@@ -10,7 +9,8 @@ from dpm_solver_pp import NoiseScheduleVP, DPM_Solver
 from absl import logging
 import builtins
 import libs.autoencoder
-
+import os
+import omegaconf
 
 def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_timestep=1000):
     _betas = (
@@ -31,7 +31,6 @@ def evaluate(config):
     logging.info(f'Process {accelerator.process_index} using device: {device}')
 
     config.mixed_precision = accelerator.mixed_precision
-    config = ml_collections.FrozenConfigDict(config)
     if accelerator.is_main_process:
         utils.set_logger(log_level='info', fname=config.output_path)
     else:
@@ -129,24 +128,19 @@ def evaluate(config):
 
 from absl import flags
 from absl import app
-from ml_collections import config_flags
-import os
 
 
 FLAGS = flags.FLAGS
-config_flags.DEFINE_config_file(
-    "config", None, "Training configuration.", lock_config=False)
-flags.mark_flags_as_required(["config"])
+flags.DEFINE_string("config", None, "Path to the YAML configuration file.")
 flags.DEFINE_string("nnet_path", None, "The nnet to evaluate.")
 flags.DEFINE_string("output_path", None, "The path to output log.")
-
+flags.mark_flags_as_required(["config", "nnet_path"])
 
 def main(argv):
-    config = FLAGS.config
+    config = omegaconf.OmegaConf.load(FLAGS.config)
     config.nnet_path = FLAGS.nnet_path
     config.output_path = FLAGS.output_path
     evaluate(config)
-
 
 if __name__ == "__main__":
     app.run(main)

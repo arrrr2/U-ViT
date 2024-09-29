@@ -1,4 +1,3 @@
-import ml_collections
 import torch
 from torch import multiprocessing as mp
 from datasets import get_dataset
@@ -19,6 +18,7 @@ import wandb
 import libs.autoencoder
 import numpy as np
 import datetime
+from omegaconf import OmegaConf
 
 
 def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_timestep=1000):
@@ -105,7 +105,7 @@ def train(config):
     logging.info(f'Process {accelerator.process_index} using device: {device}')
 
     config.mixed_precision = accelerator.mixed_precision
-    config = ml_collections.FrozenConfigDict(config)
+    config = OmegaConf.create(config)
 
     assert config.train.batch_size % accelerator.num_processes == 0
     mini_batch_size = config.train.batch_size // accelerator.num_processes
@@ -115,8 +115,9 @@ def train(config):
         os.makedirs(config.sample_dir, exist_ok=True)
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
-        wandb.init(dir=os.path.abspath(config.workdir), project=f'uvit_{config.dataset.name}', config=config.to_dict(),
-                   name=config.hparams, job_type='train', settings=wandb.Settings(start_method="fork"))
+        wandb.init(dir=os.path.abspath(config.workdir), project=config.project_name,
+                    config=OmegaConf.to_container(config), name=config.experiment_name, job_type='train',
+                    settings=wandb.Settings(_disable_stats=True))
         utils.set_logger(log_level='info', fname=os.path.join(config.workdir, 'output.log'))
         logging.info(config)
     else:
@@ -274,17 +275,16 @@ def train(config):
     eval_step(n_samples=config.sample.n_samples, sample_steps=config.sample.sample_steps)
 
 
-
 from absl import flags
 from absl import app
-from ml_collections import config_flags
+from omegaconf import OmegaConf
 import sys
 from pathlib import Path
 
 
 FLAGS = flags.FLAGS
-config_flags.DEFINE_config_file(
-    "config", None, "Training configuration.", lock_config=False)
+flags.DEFINE_string(
+    "config", None, "Training configuration.")
 flags.mark_flags_as_required(["config"])
 flags.DEFINE_string("workdir", None, "Work unit directory.")
 
@@ -314,10 +314,10 @@ def get_hparams():
 
 
 def main(argv):
-    config = FLAGS.config
+    config = OmegaConf.load(FLAGS.config)
     config.config_name = get_config_name()
     config.hparams = get_hparams()
-    config.workdir = FLAGS.workdir or os.path.join('workdir', config.config_name, config.hparams)
+    config.workdir = FLAGS.workdir or os.path.join('workdir', config.config_name)
     config.ckpt_root = os.path.join(config.workdir, 'ckpts')
     config.sample_dir = os.path.join(config.workdir, 'samples')
     train(config)

@@ -216,28 +216,18 @@ class ImageNetLatentDataset(DatasetFactory):
         self.train = self
         self.K = 1000
 
-
-        
-
     def open_feat_lmdb(self):
         self.env = lmdb.open(self._feat_path, readonly=True, lock=False, create=False)
         self.txn = self.env.begin(write=False)
 
     def _load_raw_data(self, idx):
-        if not hasattr(self, 'txn'):
-            self.open_lmdb()
+        key = f"{idx:08d}"
+        z = self.txn.get(f"{key}_moment".encode('ascii'))
+        y = self.txn.get(f"{key}_label".encode('ascii'))
+        z = np.frombuffer(z, dtype=np.float16).reshape([-1, self.resolution, self.resolution]).astype(np.float32)
+        y = int(np.frombuffer(y, dtype=np.int64))
 
-        z_bytes = self.txn.get(f'z-{str(idx)}'.encode('utf-8'))
-        y_bytes = self.txn.get(f'y-{str(idx)}'.encode('utf-8'))
-        print(len(z_bytes))
-        z = np.frombuffer(z_bytes, dtype=np.float32).reshape([-1, self.resolution, self.resolution]).copy()
-        y = int(y_bytes.decode('utf-8'))
-        # y = np.array([y], np.int64)
-
-        cond = y
-        # z = np.concatenate((z, z), axis=0)
-
-        return z, cond
+        return z, y
     
     def __getitem__(self, idx):
         if not hasattr(self, 'txn'):
@@ -259,7 +249,7 @@ class ImageNetLatentDataset(DatasetFactory):
             self.feat_env = None
 
     def __len__(self):
-        return 1281167
+        return 1281167 * 2
 
 
     def sample_label(self, n_samples, device):

@@ -228,3 +228,39 @@ class UViT(nn.Module):
         x = unpatchify(x, self.in_chans)
         x = self.final_layer(x)
         return x
+
+
+if __name__=='__main__':
+    from fvcore.nn import FlopCountAnalysis
+
+
+    model = UViT(
+        img_size=32,
+        patch_size=2,
+        in_chans=4,
+        embed_dim=1152,
+        depth=28,
+        num_heads=16,
+        mlp_ratio=4,
+        qkv_bias=False,
+        mlp_time_embed=False,
+        num_classes=1001,
+        use_checkpoint=True,
+        conv=False
+    )
+    # model = UViT(
+    #     img_size=32,
+    #     patch_size=2,
+    #     in_chans=4,
+    #     embed_dim=768,
+    #     depth=16,
+    #     num_heads=12,
+    #     mlp_ratio=4,
+    #     qkv_bias=False,
+    #     mlp_time_embed=False,
+    #     num_classes=1001,
+    #     use_checkpoint=False
+    # )
+    inputs = (torch.rand(1, 4, 32, 32), torch.tensor([1]), torch.tensor([1]))
+    flops = FlopCountAnalysis(model, inputs)
+    print("FLOPS of imagenet256_uvit_huge: ", f'{flops.total() / 1e9}G')
