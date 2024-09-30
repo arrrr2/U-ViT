@@ -98,7 +98,7 @@ def train(config):
         torch.backends.cudnn.deterministic = False
 
     mp.set_start_method('spawn')
-    timeout = accelerate.InitProcessGroupKwargs(timeout=datetime.timedelta(seconds=1800 * 4))
+    timeout = accelerate.InitProcessGroupKwargs(timeout=datetime.timedelta(seconds=3600 * 4))
     accelerator = accelerate.Accelerator(kwargs_handlers=[timeout])
     device = accelerator.device
     accelerate.utils.set_seed(config.seed, device_specific=True)
