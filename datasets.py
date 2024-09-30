@@ -258,6 +258,22 @@ class ImageNetLatentDataset(DatasetFactory):
     def label_prob(self, k):
         return torch.tensor(0.001)
 
+class HalfImageNetLatentDataset(ImageNetLatentDataset):
+    def __init__(self,
+                 path,  # Path to directory or zip.
+                 resolution=32,  # Ensure specific resolution, default 32.
+                 num_channels=4,  # Ensure specific number of channels, default 4.
+                 feat_dim=0,  # feature dim
+                 **super_kwargs,  # Additional arguments for the Dataset base class.
+                 ):
+        super().__init__(path, resolution, num_channels, feat_dim, **super_kwargs)
+    
+    def __len__(self):
+        return 1281166
+    
+    def __getitem__(self, idx):
+        return super().__getitem__(idx * 2 - (idx % 2))
+    
 
 class ImageNet512Features(DatasetFactory):  # the moments calculated by Stable Diffusion image encoder
     def __init__(self, path, cfg=False, p_uncond=None):
@@ -601,6 +617,8 @@ def get_dataset(name, **kwargs):
         return ImageNet512Features(**kwargs)
     elif name == 'imagenet256_features_lmdb':
         return ImageNetLatentDataset(**kwargs)
+    elif name == 'imagenet256_features_half':
+        return HalfImageNetLatentDataset(**kwargs)
     elif name == 'celeba':
         return CelebA(**kwargs)
     elif name == 'mscoco256_features':
