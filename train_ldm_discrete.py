@@ -191,7 +191,7 @@ def train(config):
         dpm_solver = DPM_Solver(model_fn, noise_schedule, predict_x0=True, thresholding=False)
         _z = dpm_solver.sample(_z_init, steps=_sample_steps, eps=1. / _schedule.N, T=1.)
         return decode(_z)
-
+    
     def eval_step(n_samples, sample_steps):
         logging.info(f'eval_step: n_samples={n_samples}, sample_steps={sample_steps}'
                      f'mini_batch_size={config.sample.mini_batch_size}')
@@ -233,37 +233,38 @@ def train(config):
         metrics = train_step(batch)
 
         nnet.eval()
-        if accelerator.is_main_process and train_state.step % config.train.log_interval == 0:
-            logging.info(utils.dct2str(dict(step=train_state.step, **metrics)))
-            logging.info(config.workdir)
-            wandb.log(metrics, step=train_state.step)
+        with torch.no_grad():
+            if accelerator.is_main_process and train_state.step % config.train.log_interval == 0:
+                logging.info(utils.dct2str(dict(step=train_state.step, **metrics)))
+                logging.info(config.workdir)
+                wandb.log(metrics, step=train_state.step)
 
-        if accelerator.is_main_process and train_state.step % config.train.eval_interval == 0:
-            torch.cuda.empty_cache()
-            logging.info('Save a grid of images...')
-            if config.train.mode == 'uncond':
-                samples = dpm_solver_sample(_n_samples=5 * 10, _sample_steps=50)
-            elif config.train.mode == 'cond':
-                y = einops.repeat(torch.arange(5, device=device) % dataset.K, 'nrow -> (nrow ncol)', ncol=10)
-                samples = dpm_solver_sample(_n_samples=5 * 10, _sample_steps=50, y=y)
-            else:
-                raise NotImplementedError
-            samples = make_grid(dataset.unpreprocess(samples), 10)
-            save_image(samples, os.path.join(config.sample_dir, f'{train_state.step}.png'))
-            wandb.log({'samples': wandb.Image(samples)}, step=train_state.step)
-            torch.cuda.empty_cache()
-        accelerator.wait_for_everyone()
-
-        if train_state.step % config.train.save_interval == 0 or train_state.step == config.train.n_steps:
-            torch.cuda.empty_cache()
-            logging.info(f'Save and eval checkpoint {train_state.step}...')
-            if accelerator.local_process_index == 0:
-                train_state.save(os.path.join(config.ckpt_root, f'{train_state.step}.ckpt'))
+            if accelerator.is_main_process and train_state.step % config.train.eval_interval == 0:
+                torch.cuda.empty_cache()
+                logging.info('Save a grid of images...')
+                if config.train.mode == 'uncond':
+                    samples = dpm_solver_sample(_n_samples=5 * 10, _sample_steps=50)
+                elif config.train.mode == 'cond':
+                    y = einops.repeat(torch.arange(5, device=device) % dataset.K, 'nrow -> (nrow ncol)', ncol=10)
+                    samples = dpm_solver_sample(_n_samples=5 * 10, _sample_steps=50, y=y)
+                else:
+                    raise NotImplementedError
+                samples = make_grid(dataset.unpreprocess(samples), 10)
+                save_image(samples, os.path.join(config.sample_dir, f'{train_state.step}.png'))
+                wandb.log({'samples': wandb.Image(samples)}, step=train_state.step)
+                torch.cuda.empty_cache()
             accelerator.wait_for_everyone()
-            fid = eval_step(n_samples=10000, sample_steps=50)  # calculate fid of the saved checkpoint
-            step_fid.append((train_state.step, fid))
-            torch.cuda.empty_cache()
-        accelerator.wait_for_everyone()
+
+            if train_state.step % config.train.save_interval == 0 or train_state.step == config.train.n_steps:
+                torch.cuda.empty_cache()
+                logging.info(f'Save and eval checkpoint {train_state.step}...')
+                if accelerator.local_process_index == 0:
+                    train_state.save(os.path.join(config.ckpt_root, f'{train_state.step}.ckpt'))
+                accelerator.wait_for_everyone()
+                fid = eval_step(n_samples=10000, sample_steps=50)  # calculate fid of the saved checkpoint
+                step_fid.append((train_state.step, fid))
+                torch.cuda.empty_cache()
+            accelerator.wait_for_everyone()
 
     logging.info(f'Finish fitting, step={train_state.step}')
     logging.info(f'step_fid: {step_fid}')
