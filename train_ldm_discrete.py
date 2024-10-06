@@ -242,13 +242,15 @@ def train(config):
             if accelerator.is_main_process and train_state.step % config.train.eval_interval == 0:
                 torch.cuda.empty_cache()
                 logging.info('Save a grid of images...')
+                samples = []
                 if config.train.mode == 'uncond':
-                    samples = dpm_solver_sample(_n_samples=5 * 10, _sample_steps=50)
+                    for ___ in range(2): samples.append(dpm_solver_sample(_n_samples=5 * 5, _sample_steps=50))
                 elif config.train.mode == 'cond':
-                    y = einops.repeat(torch.arange(5, device=device) % dataset.K, 'nrow -> (nrow ncol)', ncol=10)
-                    samples = dpm_solver_sample(_n_samples=5 * 10, _sample_steps=50, y=y)
+                    y = einops.repeat(torch.arange(5, device=device) % dataset.K, 'nrow -> (nrow ncol)', ncol=5)
+                    for ___ in range(2): samples.append(dpm_solver_sample(_n_samples=5 * 5, _sample_steps=50, y=y))
                 else:
                     raise NotImplementedError
+                samples = torch.cat(samples)
                 samples = make_grid(dataset.unpreprocess(samples), 10)
                 save_image(samples, os.path.join(config.sample_dir, f'{train_state.step}.png'))
                 wandb.log({'samples': wandb.Image(samples)}, step=train_state.step)

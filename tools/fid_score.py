@@ -71,7 +71,7 @@ class ImagePathDataset(torch.utils.data.Dataset):
         return img
 
 
-def get_activations(files, model, batch_size=50, dims=2048, device='cpu', num_workers=8):
+def get_activations(files, model, batch_size=25, dims=2048, device='cpu', num_workers=8):
     """Calculates the activations of the pool_3 layer for all images.
 
     Params:
@@ -186,7 +186,7 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
             + np.trace(sigma2) - 2 * tr_covmean)
 
 
-def calculate_activation_statistics(files, model, batch_size=50, dims=2048,
+def calculate_activation_statistics(files, model, batch_size=25, dims=2048,
                                     device='cpu', num_workers=8):
     """Calculation of the statistics used by the FID.
     Params:
@@ -225,7 +225,7 @@ def compute_statistics_of_path(path, model, batch_size, dims, device, num_worker
     return m, s
 
 
-def save_statistics_of_path(path, out_path, device=None, batch_size=50, dims=2048, num_workers=8):
+def save_statistics_of_path(path, out_path, device=None, batch_size=25, dims=2048, num_workers=8):
     if device is None:
         device = torch.device('cuda' if (torch.cuda.is_available()) else 'cpu')
     else:
@@ -236,7 +236,7 @@ def save_statistics_of_path(path, out_path, device=None, batch_size=50, dims=204
     np.savez(out_path, mu=m1, sigma=s1)
 
 
-def calculate_fid_given_paths(paths, device=None, batch_size=50, dims=2048, num_workers=8):
+def calculate_fid_given_paths(paths, device=None, batch_size=25, dims=2048, num_workers=8):
     """Calculates the FID of two paths"""
     if device is None:
         device = torch.device('cuda' if (torch.cuda.is_available()) else 'cpu')
